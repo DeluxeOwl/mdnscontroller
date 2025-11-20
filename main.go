@@ -81,7 +81,7 @@ func main() {
 			ctx, cancel := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 			defer cancel()
 
-			mdnsHandler := mdns.NewMacHandler(ctx)
+			mdnsHandler := mdns.NewMacHandler(ctx, logger, ipAddress)
 			controller := controller.NewMDNS(factory, mdnsHandler, logger)
 
 			// Handle crash inside the informer routines
@@ -94,7 +94,7 @@ func main() {
 		},
 	}
 
-	cmd.Flags().StringVar(&ipAddress, "ip-address", "127.0.0.1", "IP address to advertise (auto-detected if not specified)")
+	cmd.Flags().StringVar(&ipAddress, "ip-address", "<defaults to first ipv4 found>", "IP address to advertise (auto-detected if not specified)")
 	configFlags.AddFlags(cmd.Flags())
 
 	if err := cmd.Execute(); err != nil {
