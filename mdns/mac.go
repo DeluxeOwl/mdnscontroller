@@ -1,21 +1,24 @@
 package mdns
 
-import "log/slog"
+import (
+	"context"
+	"log/slog"
+)
 
-// MacHandler acts as the "Real" implementation for your mDNS logic
-// for demonstration purposes.
-type MacHandler struct{}
+type MacHandler struct {
+	ctx context.Context
+}
 
-func NewMacHandler() *MacHandler {
-	return &MacHandler{}
+func NewMacHandler(ctx context.Context) *MacHandler {
+	return &MacHandler{
+		ctx: ctx,
+	}
 }
 
 func (lp *MacHandler) OnHostsAdded(hosts []string) {
-	// TODO: Insert mDNS Register Logic Here
 	slog.Info("ACTION: Registering hosts", "hosts", hosts)
 }
 
 func (lp *MacHandler) OnHostsRemoved(hosts []string) {
-	// TODO: Insert mDNS Unregister Logic Here
 	slog.Info("ACTION: Unregistering hosts", "hosts", hosts)
 }

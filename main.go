@@ -52,11 +52,11 @@ func main() {
 				informers.WithNamespace(namespace),
 			)
 
-			mdnsHandler := mdns.NewMacHandler()
-			controller := controller.NewMDNS(factory, mdnsHandler, logger)
-
 			ctx, cancel := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 			defer cancel()
+
+			mdnsHandler := mdns.NewMacHandler(ctx)
+			controller := controller.NewMDNS(factory, mdnsHandler, logger)
 
 			// Handle crash inside the informer routines
 			defer runtime.HandleCrash()
