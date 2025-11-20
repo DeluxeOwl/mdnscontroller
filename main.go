@@ -6,13 +6,14 @@ import (
 	"net"
 	"os"
 	"os/signal"
+	"runtime"
 	"syscall"
 	"time"
 
 	"github.com/DeluxeOwl/mdnscontroller/controller"
 	"github.com/DeluxeOwl/mdnscontroller/mdns"
 	"github.com/spf13/cobra"
-	"k8s.io/apimachinery/pkg/util/runtime"
+	k8sruntime "k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/cli-runtime/pkg/genericclioptions"
 	"k8s.io/client-go/informers"
 	"k8s.io/client-go/kubernetes"
@@ -81,11 +82,19 @@ func main() {
 			ctx, cancel := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 			defer cancel()
 
-			mdnsHandler := mdns.NewMacHandler(ctx, logger, ipAddress)
-			controller := controller.NewMDNS(factory, mdnsHandler, logger)
+			var handler controller.HostHandler
+			switch operatingSystem := runtime.GOOS; operatingSystem {
+			case "darwin":
+				handler = mdns.NewMacHandler(ctx, logger, ipAddress)
+			default:
+				logger.Error("Not implemented for", "os", operatingSystem)
+				os.Exit(1)
+			}
+
+			controller := controller.NewMDNS(factory, handler, logger)
 
 			// Handle crash inside the informer routines
-			defer runtime.HandleCrash()
+			defer k8sruntime.HandleCrash()
 
 			if err := controller.Run(ctx); err != nil {
 				logger.Error("Error running controller", "err", err)
