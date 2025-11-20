@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"log/slog"
+	"net"
 	"os"
 	"os/signal"
 	"syscall"
@@ -17,12 +18,33 @@ import (
 	"k8s.io/client-go/kubernetes"
 )
 
+func GetLocalAddressOr(logger *slog.Logger, fallback string) string {
+	addrs, err := net.InterfaceAddrs()
+	if err != nil {
+		logger.Error("List interface addresses", "err", err)
+		return fallback
+	}
+
+	for _, addr := range addrs {
+		if ipnet, ok := addr.(*net.IPNet); ok && !ipnet.IP.IsLoopback() {
+			if ipv4 := ipnet.IP.To4(); ipv4 != nil {
+				logger.Info("Using ip for mDNS", "ip", ipv4.String())
+				return ipv4.String()
+			}
+		}
+	}
+
+	logger.Warn("No IPv4 addresses found")
+	return fallback
+}
+
 func main() {
 	logger := slog.New(slog.NewTextHandler(os.Stdout, nil))
 	slog.SetDefault(logger)
 
 	configFlags := genericclioptions.NewConfigFlags(true)
 
+	var ipAddress string
 	cmd := &cobra.Command{
 		Use:   "mdnscontroller",
 		Short: "Watches ingresses for hosts and registers them.",
@@ -43,6 +65,10 @@ func main() {
 			namespace, _, _ := configFlags.ToRawKubeConfigLoader().Namespace()
 
 			logger.Info("Starting controller", "namespace", namespace)
+
+			if !cmd.Flags().Changed("ip-address") {
+				ipAddress = GetLocalAddressOr(logger, ipAddress)
+			}
 
 			// Create Informer Factory
 			// Re-sync every 10 mins ensures the cache doesn't drift
@@ -68,6 +94,7 @@ func main() {
 		},
 	}
 
+	cmd.Flags().StringVar(&ipAddress, "ip-address", "127.0.0.1", "IP address to advertise (auto-detected if not specified)")
 	configFlags.AddFlags(cmd.Flags())
 
 	if err := cmd.Execute(); err != nil {
